@@ -1,0 +1,173 @@
+import time
+import difflib
+from selenium import webdriver
+import tkinter as tk
+import winsound
+from selenium.webdriver.chrome.service import Service
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
+search_list = ["chair", "cushion", "shelve","stool","nerf","gun","ottoman","toy","drawer","rack","bike","bin","bench","cabinet"]
+driver_location="C:\\Users\\parag\\Documents\\selenium_chrome\\chromedriver.exe"
+site_list = [
+             {"site_url":"https://freecycle.org/home/dashboard","username":"****","pwd":"***","abbr":"freecycle"},
+             {"site_url":"https://nextdoor.co.uk","username":"oxytocin07@gmail.com","pwd":"***","abbr":"nextdoor"}
+            ]
+###############################################################################################
+def login_site(dictionary):
+    
+    abbrv    = dictionary.get('abbr')
+    if abbrv == ("freecycle"):
+        driver.find_element(By.ID, "onetrust-accept-btn-handler").click()
+        driver.find_element(By.NAME, "user").send_keys(dictionary.get('username'))
+        driver.find_element(By.NAME, "password").send_keys(dictionary.get('pwd'))
+        driver.find_element(By.XPATH, "/html/body/div[1]/div[2]/div/div[2]/div/div/div/form/div/div[3]/button").click()
+    if abbrv == ("nextdoor"):
+        driver.find_element(By.XPATH, "//button[@id='onetrust-accept-btn-handler']").click() 
+        driver.find_element(By.XPATH, "//button[normalize-space()='Log in']").click()
+        driver.find_element(By.XPATH, "//input[@id='id_email']").send_keys(dictionary.get('username'))
+        driver.find_element(By.XPATH, "//input[@id='id_password']").send_keys(dictionary.get('pwd'))
+        driver.find_element(By.XPATH, "//button[@id='signin_button']").click()
+        time.sleep(10)   
+        driver.find_element(By.XPATH, "//span[normalize-space()='For Sale & Free']").click() 
+        time.sleep(5) 
+        driver.find_element(By.XPATH, "//span[normalize-space()='Free']").click() 
+###############################################################################################
+def scrape_site(dictionary):
+   
+    abbrv    = dictionary.get('abbr')
+    driver.switch_to.window(win_id_dict[abbrv])
+    time.sleep(5)
+    driver.refresh()
+    win_id_dict[abbrv]=driver.current_window_handle
+
+    if abbrv == ("freecycle"):
+           
+        driver.find_element(By.XPATH, "//button[@class='btn-action']").click()
+        time.sleep(5)
+        element_list = driver.find_elements(By.XPATH, "//a[contains(@href,'/posts/')]")
+        item_list = [element.text for element in element_list]
+        return item_list
+    
+    if abbrv == ("nextdoor"):
+         
+        time.sleep(10)
+        driver.find_element(By.TAG_NAME,'body').send_keys(Keys.END)
+        time.sleep(10)
+        element_list = driver.find_elements(By.XPATH, "//div[@class='css-hc2vll']")
+        item_list = [element.text for element in element_list]
+        return item_list
+###############################################################################################
+def remove_duplicates(list1, list2):
+    # Create a new list to store the unique items
+    new_list = []
+
+    # Iterate over the items in list1
+    for item in list1:
+        # Check if the item is not present in list2
+        if item not in list2:
+            # Add the item to the new list
+            new_list.append(item)
+
+    return new_list
+###############################################################################################
+def show_alert(item_list):
+    def display_list_items(list_items):
+        for item in list_items:
+            print(item)
+    # Play sound
+    for i in range(1):
+        winsound.PlaySound("boxing_bell.wav", winsound.SND_LOOP)
+    # Create alert box
+    # root = tk.Tk()
+    # root.geometry("400x400")
+    # root.title(site_name)
+    # alert_label = tk.Label(root, text=item_desc,font=('Arial',12))
+    # alert_label.pack(padx=20, pady=20)
+    # button = tk.Button(root,text="OK",font=('Arial',20))
+    # button.pack(padx=20, pady=20)
+    print ('********************************************************')
+    display_list_items(item_list)
+    print ('********************************************************')
+    # # Run the GUI
+    # root.mainloop()
+    
+###############################################################################################   
+
+def search_items(search_list, target_list):
+    found_list =[]
+    for search_item in search_list:
+        search_item_lower = search_item.lower()
+        found = False
+
+        for target_item in target_list:
+            target_item_lower = target_item.lower()
+
+            if search_item_lower in target_item_lower:
+                found_list.append(target_item)
+                break
+            
+            matcher = difflib.SequenceMatcher(None, search_item_lower, target_item_lower)
+            similarity_ratio = matcher.ratio()
+            
+            if similarity_ratio >= 0.8:
+                found_list.append(target_item)
+                break
+            
+    return found_list
+
+###############################################################################################            
+def open_site(dictionary):
+    
+    abbrv    = dictionary.get('abbr')
+    site_url = dictionary.get('site_url')
+    username = dictionary.get('username')
+    password = dictionary.get('pwd')
+    driver.get(site_url)
+    return driver.current_window_handle
+###############################################################################################
+def config_driver():
+    service = Service(driver_location)
+    # ops.add_argument("--disable-notifications")
+    ops =webdriver.ChromeOptions()
+    ops.add_argument("--ignore-certificate-error")
+    ops.add_argument("--ignore-ssl-errors")
+    ops.add_argument("log-level=3")
+    # ops.headless=True
+    driver = webdriver.Chrome(service=service,options=ops)
+    driver.maximize_window()
+    driver.implicitly_wait(50)
+    return driver
+###############################################################################################
+def get_value_from_list_of_dicts(lst, key):
+    values = []
+    for item in lst:
+        if key in item:
+            values.append(item[key])
+    return values
+###############################################################################################
+driver=config_driver()
+
+win_id_dict={}
+item_list_last_dict ={}
+for i in range(len(site_list)):
+    
+    win_handle=open_site(site_list[i]) 
+    login_site(site_list[i])
+    win_id_dict[site_list[i]['abbr']]=win_handle
+    item_list_last_dict[site_list[i]['abbr']] =[]
+    if i <   len(site_list)-1:
+        driver.switch_to.new_window('tab') 
+for i in range(100):
+    for j in range(len(site_list)):
+        driver.maximize_window()
+        item_list_current=scrape_site(site_list[j])
+        item_list = remove_duplicates(item_list_current, item_list_last_dict[site_list[j]['abbr']])
+        print ('************Items found on '+site_list[j]['abbr']+' ***************')
+        print(item_list)
+        found_list=search_items(search_list, item_list)
+        if len(found_list) > 0:
+            show_alert(found_list)
+        item_list_last_dict[site_list[j]['abbr']]=item_list_current
+    driver.minimize_window()
+    time.sleep(300) # Let the user actually see something!
+driver.quit() 
